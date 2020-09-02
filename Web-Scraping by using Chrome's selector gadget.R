@@ -81,7 +81,7 @@ date <- page %>%
              .responsive-select .responsive-select-value") %>%
   html_text()
 
-# Putting these chunks together in a table of the class. 
+# Putting these chunks together in a table. 
 
 tab <- data.frame(chart_position, title, artist, stream_count, date)
 
