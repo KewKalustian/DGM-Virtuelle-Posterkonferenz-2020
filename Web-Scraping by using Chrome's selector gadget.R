@@ -1,3 +1,7 @@
+# ################ #
+# Loading packages #
+# ################ #
+
 remove(list = ls(all = T)); gc(T,T,T)
 
 if (!require(tidyverse))
