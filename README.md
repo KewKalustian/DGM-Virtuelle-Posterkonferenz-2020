@@ -1,3 +1,3 @@
 
-Hier werden in Kürze ein reproduzierbares R-Skript, ein Datensatz und ein detaillierter Forschungsbericht zum Konferenz-Beitrag **"Streaming in der Krise: Spotify-Streaming
+Hier sind ein aktuelles Abstract, reproduzierbare R-Skripte sowie der Datensatz zum Konferenz-Beitrag **"Streaming in der Krise: Spotify-Streaming
 vor und während der COVID-19-Pandemie in Deutschland"** zur Verfügung gestellt.
