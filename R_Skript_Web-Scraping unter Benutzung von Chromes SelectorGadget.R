@@ -10,10 +10,6 @@ install.packages("tidyverse", repos = "http://cran.us.r-project.org")
 if (!require(rvest)) 
 install.packages("rvest", repos = "http://cran.us.r-project.org")
 
-if (!require(tibble))
-install.packages("tidyverse", repos = "http://cran.us.r-project.org")
-
-
 # First, we have to store the permanent Spotify-link to an object.
 
 url <- "https://spotifycharts.com/regional/de/daily/"
