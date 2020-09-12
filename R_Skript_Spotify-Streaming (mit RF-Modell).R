@@ -4,9 +4,6 @@
 
 remove(list = ls(all = T)); gc(T,T,T)
 
-# Always reporting three significant numbers to avoid spurious accuracy
-options(digits = 6)
-
 # Generating a neat blank function to load all desired packages
 
 load_packages <- function(){
@@ -24,7 +21,7 @@ desired.packages <- c(# Tidy coding paradigm
                       # Graphics
                       "ggExtra", "ggrepel", "scales", 
                       # Machine Learning 
-                      "caret", "randomForest", "ranger",
+                      "caret", "randomForest", "ranger", "FNN",
                       # Forecasting
                       "forecast", "fpp2", "vars",
                       # Time series related tests / accuracy-metrics
@@ -153,7 +150,7 @@ theme(axis.title.y = element_text(size = 14),
 spotifyR_Pre <- spotifyRR %>%
   filter(date <= as.Date("2020-03-10")) %>%
   group_by(weekday) %>% 
-  summarize(Mdn_Streams = median(stream_count)) 
+  summarize(Mdn_Streams = mean(stream_count)) 
 
 # Subsetting the data into a crisis set  
 
@@ -161,7 +158,33 @@ spotifyR_Crisis <- spotifyRR %>%
   filter(date >= as.Date("2020-03-11") & 
            date <= as.Date("2020-06-29")) %>%
   group_by(weekday) %>%
-  summarize(Mdn_Streams = median(stream_count))  
+  summarize(Mdn_Streams = mean(stream_count))  
+
+
+
+# Datenaufspaltung
+
+spotifyR_Pre_direct <-  spotifyRR %>%
+  filter(date >= as.Date("2019-03-11") & 
+         date <= as.Date("2019-06-29")) %>%
+  group_by(weekday) %>%
+  summarize(Mdn_Streams = median(stream_count))
+
+spotifyR_Crisis_direct <-  spotifyRR %>%
+  filter(date >= as.Date("2020-03-11") & 
+           date <= as.Date("2020-06-29")) %>%
+  group_by(weekday) %>%
+  summarize(Mdn_Streams = median(stream_count))
+
+t_d <- t.test(spotifyR_Crisis_direct$Mdn_Streams, spotifyR_Pre_direct$Mdn_Streams, 
+       conf.level = .95, paired = T, alternative = "greater")
+
+print(t_d)
+
+eff_size <- sqrt(abs(t_d$statistic^2 / (t_d$statistic^2 + t_d$parameter)))
+
+print(eff_size)
+
 
 # ################## #
 # t-Test assumptions #
@@ -414,53 +437,53 @@ theme(axis.title.y = element_text(size = 14),
 # ########################### #
 
 spotifyRRR <- spotifyRR %>% 
-  group_by(date) %>%
-  summarize(MdnStreams = median(stream_count)) 
+              group_by(date) %>%
+              summarize(MdnStreams = median(stream_count)) 
 
-#1. From a data.frame into a tibble
+# 1. From a data.frame into a tibble
 spotifyR_tib <- tibble(Date = as.Date(spotifyRRR$date),
                        Actual_Stream_Counts = spotifyRRR$MdnStreams)
 
-#2. From a tibble into a tsibble
+# 2. From a tibble into a tsibble
 spotifyR_tsib <- as_tsibble(spotifyR_tib)
 
-#3. From a tsibble into a daily time series, starting on the 1. January 2019
+# 3. From a tsibble into a daily time series, starting on the 1. January 2019
 spotifyR_TS <- as.ts(spotifyR_tsib, frequency = 365, start = c(2019,1))
 
 # ############## #
 # Stationarizing #
 # ############## #
 
-#Note the end-argument in the window-function. The 10. March is day 70 of the 
-#year 2020
+# Note the end-argument in the window-function. The 10. March is day 70 of the 
+# year 2020
 
 spotifyR_TS_station <- window(spotifyR_TS, end = c(2020, 70)) 
 
-#Are the data stationary? If not: How many times do the data need to be 
-#differenced?
+# Are the data stationary? If not: How many times do the data need to be 
+# differenced?
 
 ndif <- ndiffs(spotifyR_TS_station)
 print(ndif)
 
-#Apparently, we have to difference our data only once. This appears reseasonable
-#based on the inspection of connected scatter plot from above.
+# Apparently, we have to difference our data only once. This appears reasonable
+# based on the inspection of the connected scatter plot from above.
 
-#For doing so, we log-transform the data, then we difference the data 
-#(i.e., stabilizing the variance and the means; also known as de-trending and 
-#de-seasonalizing)
+# For doing so, we log-transform the data, then we difference the data 
+# (i.e., stabilizing the variance and the means; also known as de-trending and 
+# de-seasonalizing)
 
 spotifyR_TS_trans <- diff(log(spotifyR_TS_station), differences = ndif)
 
-#How many lags (i.e., repeating frequency pattern) does the period entail?
+# How many lags (i.e., repeating frequency pattern) does the period entail?
 
-lag_selection <- vars::VARselect(spotifyR_TS_trans)
+lag_selection <- VARselect(spotifyR_TS_trans)
 
 print(lag_selection$selection)
 
-# Lag of 7 seems reasonable since in the connected scatter plot a weeakly 
+# Lag of 7 seems reasonable since in the connected scatter plot a weekly 
 # pattern is observable: 4-5 spikes per month (= 4-5 pattern of 7 days)  
 
-#Checking whether "spotifyR_TS_trans" has a unit root  
+# Checking whether "spotifyR_TS_trans" has a unit root  
 
 spotifyR_TS_trans %>%
   ur.df(lags = 7) %>%
@@ -494,10 +517,6 @@ y_train <-  spotifyR_TS_trans_embed[, 1]
 
 X_train <- spotifyR_TS_trans_embed[, -1] 
 
-# The actual test set with those suggested lags as validation set 
-
-X_valid <- spotifyR_TS_trans_embed[nrow(spotifyR_TS_trans_embed), c(1:lags)] 
-
 # Now we assign the actual final data set that we want to estimate with our 
 # model. In our case: The time series between 11. March 20 (day 71 of the year 
 # 2020) and 29.June 20 (day 181 of the year 2020); this is the examined period 
@@ -505,20 +524,23 @@ X_valid <- spotifyR_TS_trans_embed[nrow(spotifyR_TS_trans_embed), c(1:lags)]
 
 y_test <- window(spotifyR_TS, start = c(2020, 71), end = c(2020, 181))
 
+
+# The actual values with those suggested lags as validation set 
+
+X_valid <- spotifyR_TS_trans_embed[nrow(spotifyR_TS_trans_embed), c(1:lags)] 
+
 # ################# #
 # Cross—validations #
 # ################# #
 
-# We hold back the last observation
+# RANDOM FOREST: Hyperparameter tuning via 10k-cross-validation
 
 train_control <- trainControl(method = "repeatedcv", number = 10, repeats = 5)
 
-# RANDOM FOREST: Hyperparameter tuning via cross-validation
-
-#We define the number of predictors in the mtry-object. This is the number 
-#of randomly chosen splits at each tree. According to the suggestion of 
-#Breiman and Cutler (2018) we should divide the predictors by 3 for 
-#regression-approaches.
+# We define the number of predictors in the mtry-object. This is the number 
+# of randomly chosen splits at each tree. According to the suggestion of 
+# Breiman and Cutler (2018) we should divide the predictors by 3 for 
+# regression-approaches.
 
 rf_tune_grid <- expand.grid(mtry = floor(col(X_train) / 3), 
                             splitrule = "extratrees", min.node.size = 5)
@@ -532,20 +554,37 @@ plot(rf_kfold_cv)
 print(rf_kfold_cv$bestTune[,1])
 
 
-# We see that the kNN Model performs just slightly better than the RF-Model. 
-# Hence, we should compute both models.
+# kNN: Hyperparameter tuning via 10k-cross-validation
+
+knn_train_control <- trainControl(method = "repeatedcv", number = 10, 
+                                  repeats = 5)
+
+knn_tune_grid <- expand.grid(k = c(1:25))
+
+set.seed(61, sample.kind = "Rounding")
+
+knn_kfold_cv <- train(data.frame(X_train), y_train, 
+                      method = "knn", 
+                      trControl = knn_train_control, 
+                      tuneGrid = knn_tune_grid)
+
+plot(knn_kfold_cv)
+print(knn_kfold_cv$bestTune[,1])
 
 # ########### #
 # PREDICTIONS #
 # ########### #
 
+# Random Forest
+
 # Now, we save each estimate in a blank object (like a container that 
-# gets filled) 
+# gets filled with the predicted estimates) 
+
 rf_estimates <- numeric(horizon)
 
 set.seed(1, sample.kind = "Rounding")
 
-# For-loop | Random Forest-Predictions
+# For-loop | Random Forest Predictions
 for (i in 1:horizon) {
 
 set.seed(1857, sample.kind = "Rounding")
@@ -557,28 +596,60 @@ rf_mod <- randomForest(X_train, y_train, mtry = rf_kfold_cv$bestTune[,1],
 
 rf_estimates[i] <- predict(rf_mod, X_valid) 
   
-#Here we 
 y_train <- y_train[-1] 
   
 X_train <- X_train[-nrow(X_train),]}
 
-# Retransforming the estimates by taking the "anti-logs" (i.e., computing the
-# exponents of every estimate)
+# kNN
+
+# As above, we save each estimate in a blank object 
+
+knn_estimates <- numeric(horizon)
+
+# Setting the training sets back to their default/initial values so that the 
+# following kNN estimates rely on the actual values and not on the values of the
+# RF predictions process. Or simply: A fresh start.
+ 
+y_train <- spotifyR_TS_trans_embed[, 1] 
+X_train <- spotifyR_TS_trans_embed[, -1] 
+
+set.seed(1, sample.kind = "Rounding")
+
+# For-loop | kNN Predictions
+
+for (j in 1:horizon) {
+  
+set.seed(1857, sample.kind = "Rounding")
+
+knn_estimates[j] <- knn.reg(train = data.frame(X_train), test = X_valid,
+                            y = y_train, 
+                            k = knn_kfold_cv$bestTune[,1])$pred 
+
+y_train <- y_train[-1] 
+
+X_train <- X_train[-nrow(X_train),] }
+
+# Retransforming the estimates by taking the "anti-logs" (i.e., computing 
+# exponents for every estimate)
 
 rf_exponents_of_estimates <- exp(cumsum(rf_estimates))
+knn_exponents_of_estimates <- exp(cumsum(knn_estimates))
 
 # Extracting the last observation from the time series
 
-rf_last_observation <- as.vector(tail(spotifyR_TS_station, 1))
+last_observation <- as.vector(tail(spotifyR_TS_station, 1))
 
 # Getting the final values by retransforming them
 
-rf_retransformed_estimates <- rf_last_observation * rf_exponents_of_estimates
+rf_retransformed_estimates <- last_observation * rf_exponents_of_estimates
+knn_retransformed_estimates <- last_observation * knn_exponents_of_estimates
 
-# Converting them into time series-format
+#Converting them to time series-format
 
 rf_y_pred <- ts(rf_retransformed_estimates, start = c(2020, 71), 
                 frequency = 365)
+knn_y_pred <- ts(knn_retransformed_estimates, start = c(2020, 71), 
+                 frequency = 365)
 
 # As we get predictions of the actual stream counts with our trained model, we 
 # should evaluate the performance of these estimates by comparing it with a 
@@ -599,24 +670,45 @@ benchmark <- snaive(spotifyR_TS_station, h = horizon)
 # Results #
 # ####### #
 
-fuzzyr.accuracy(rf_y_pred, y_test, benchmark$mean)
+fuzzyr.accuracy(rf_y_pred, y_test, knn_y_pred)
+fuzzyr.accuracy(knn_y_pred, y_test, benchmark$mean)
 
-R_squared <- 1 - (sum((y_test - rf_y_pred)^2) / sum((y_test - mean(y_test))^2))
-print(R_squared)
+rf_R_squared <- 1 - (sum((y_test - rf_y_pred)^2) /
+                       sum((y_test - mean(y_test))^2))
+rf_R_squared
 
-adj.r.squared = 1 - (1 - R_squared) * ((111 - 1)/(111 - 7 - 1))
-print(adj.r.squared)
+
+knn_R_squared <- 1 - (sum((y_test - knn_y_pred)^2) / 
+                        sum((y_test - mean(y_test))^2))
+knn_R_squared
+
+
+rf_adj.r.squared = 1 - (1 - rf_R_squared) * ((111 - 1)/(111 - 7 - 1))
+print(rf_adj.r.squared)
+
+knn_adj.r.squared = 1 - (1 - knn_R_squared) * ((111 - 1)/(111 - 7 - 1))
+print(knn_adj.r.squared)
+
 
 # Bringing the original data and the estimates together
 
 spotifyR_tib_star <- spotifyR_tib %>% 
   mutate(RF_Estimates = c(rep(NA, length(spotifyR_TS_station)), rf_y_pred),
+         kNN_Estimates = c(rep(NA, length(spotifyR_TS_station)), knn_y_pred),
          SN_Estimates = c(rep(NA, length(spotifyR_TS_station)), benchmark$mean))
 
+#Creating a matrix
+
+m_tmp <- matrix(c(test$Actual_Stream_Counts, test$RF_Estimates, 
+                  test$kNN_Estimates, test$SN_Estimates), ncol = 4, 
+                  nrow = horizon, dimnames = list(1:horizon, 
+                                                c("Actual Stream Counts",
+                                                  "Random Forest-estimates", 
+                                                  "kNN-estimates", 
+                                                  "Seasonal naïve-fit")))
 # Extracting only the crisis-period
 
 test <-  tail(spotifyR_tib_star, horizon)
-
 
 # As the assumption are met, we can move on to compute the t-Test. 
 
@@ -689,9 +781,13 @@ mutate(RF_E_lo.95 = RF_Estimates  - 1.96 * SD_star,
 
 # Creating a color-object
 
-cols <- c("Actual Stream Counts (Median)" = "black", 
-          "Random Forest-estimates\nwithin 95 % PI" = "darkgreen",
-          "Seasonal-naive Model" = "deeppink")
+cols <- c("Actual Stream Counts (Median)" = "black",
+          # Colorblind Green
+          "Random Forest-Estimates\nwithin 95 % PI" = "#009E73", 
+          # Colorblind Orange
+          "kNN-Estimates" = "#E69F00",
+          # Colorblind Pink
+          "Seasonal-naïve Model" = "#CC79A7")
 
 #Plotting code
 
@@ -706,37 +802,42 @@ geom_point(aes(y = Actual_Stream_Counts,
            size = .75) +
 geom_line(aes(y = Actual_Stream_Counts, 
               color = "Actual Stream Counts (Median)"), 
-          lty = "solid") +
+          lty = "dashed") +
 
 geom_point(aes(y = RF_Estimates, 
-               color = "Random Forest-estimates\nwithin 95 % PI"), size = .75) + 
+               color = "Random Forest-Estimates\nwithin 95 % PI"), size = .75) + 
   
 geom_line(aes(y = RF_Estimates, 
-              color = "Random Forest-estimates\nwithin 95 % PI"), 
+              color = "Random Forest-Estimates\nwithin 95 % PI"), 
           lty = "solid") +
+
+geom_point(aes(y = kNN_Estimates, color = "kNN-Estimates"), 
+             size = .75) + 
+  geom_line(aes(y = kNN_Estimates, color = "kNN-Estimates"),
+            lty = "solid") +
   
 geom_point(aes(y = SN_Estimates, 
-               color = "Seasonal-naive Model"),
+               color = "Seasonal-naïve Model"),
            size = .75) +
 geom_line(aes(y = SN_Estimates, 
-              color = "Seasonal-naive Model"), 
+              color = "Seasonal-naïve Model"), 
           lty = "solid") +
 
 geom_ribbon(aes(y = RF_Estimates, ymin = RF_E_lo.95, ymax = RF_E_hi.95), 
-            fill = "darkgreen", alpha = 0.2) +
+            fill = "#009E73", alpha = 0.2) +
 
 scale_colour_manual(name = "Legend:", values = cols) +
 scale_fill_manual(name = "Legend:", values = cols) +
 
 geom_vline(xintercept = as.numeric(as.Date("2020-03-11")), 
-           color = "navyblue", size = 0.2, lty = "dashed") +
+           color = "#0072B2", size = 0.2, lty = "dashed") +
 
 geom_label(aes(x = as.Date("2020-05-05"), y = 13e4, 
-               label = "Test dataset\n(Pandemic)"), color = "darkred", 
+               label = "Test dataset\n(Pandemic)"), color = "#D55E00", 
            size = 4) +
 
 annotate("rect", xmin = as.Date("2020-03-11"), xmax = as.Date("2020-06-29"), 
-         ymin = -Inf, ymax = Inf, alpha = 0.04, fill = "darkred") +
+         ymin = -Inf, ymax = Inf, alpha = 0.08, fill = "#D55E00") +
 
 scale_x_date(limits = c(as.Date("2020-03-11"), as.Date("2020-06-29")), 
              date_breaks = "7 day", date_labels = "%d.%b.%y") +
@@ -754,3 +855,8 @@ theme(axis.title.y = element_text(size = 14),
                                        linetype = "solid",
                                        color = "grey90"),
       plot.margin = unit(c(.66,.33,.66,.33), "cm"))
+
+
+
+
+sessioninfo::session_info()
