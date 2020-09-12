@@ -670,7 +670,7 @@ benchmark <- snaive(spotifyR_TS_station, h = horizon)
 # Results #
 # ####### #
 
-fuzzyr.accuracy(rf_y_pred, y_test, knn_y_pred)
+fuzzyr.accuracy(rf_y_pred, y_test, benchmark$mean)
 fuzzyr.accuracy(knn_y_pred, y_test, benchmark$mean)
 
 rf_R_squared <- 1 - (sum((y_test - rf_y_pred)^2) /
@@ -681,7 +681,6 @@ rf_R_squared
 knn_R_squared <- 1 - (sum((y_test - knn_y_pred)^2) / 
                         sum((y_test - mean(y_test))^2))
 knn_R_squared
-
 
 rf_adj.r.squared = 1 - (1 - rf_R_squared) * ((111 - 1)/(111 - 7 - 1))
 print(rf_adj.r.squared)
