@@ -100,4 +100,4 @@ process_time <- end_time - init_time
 print(process_time)
 
 # Exporting and saving the retrieved datatable as .csv-file.
-write_csv(spotifyR, "spotifyR_charts.csv")
+write_csv(spotifyR, "spotifyR_Charts_orig.csv")
