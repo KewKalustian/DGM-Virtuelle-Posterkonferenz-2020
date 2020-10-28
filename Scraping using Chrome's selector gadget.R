@@ -20,16 +20,13 @@ streaming_period <- seq(as.Date("2019/01/01"), as.Date("2020/06/29"),
 # the URLs (for the entire period) by taking the permanent link from above and a 
 # blank argument (such as x) as another object to which the URL should depend 
 # (i.e., our streaming_period).
+ 
+gathering_urls <- function(x){paste0(url, x)}
 
-combined_urls <- function(x){final_urls <- paste0(url, x) 
-                             final_urls}
-
-# Using the just created function to apply it to the streaming period to finally
+# Using the just created function to apply it on the streaming period to finally
 # get those 546 definitive URLs.
 
-definitive_urls <- combined_urls(streaming_period)
-
-head(definitive_urls)
+all_urls  <- gathering_urls(streaming_period)
 
 # Everything looks fine thus far. Hence, we create now an empty dataframe-object 
 # with the desired column-names and the needed row-length so that we can fill 
@@ -40,39 +37,39 @@ spotifyR_scrapeR <- function(x) {page <- x
 
 # Retrieving the 200 chart positions of each day.
 
-chart_position <- page %>%
-  read_html() %>% 
-  html_nodes(".chart-table-position") %>% 
-  html_text()
+chart_position <- page %>% 
+                  read_html() %>% 
+                  html_nodes(".chart-table-position") %>% 
+                  html_text()
 
 # Retrieving the 200 song/track titles of each day.
 
 title <- page %>% 
-  read_html() %>% 
-  html_nodes("strong") %>% 
-  html_text()
-
+         read_html() %>% 
+         html_nodes("strong") %>% 
+         html_text()
+           
 # Retrieving the 200 artist names of each day.
 
 artist <- page %>% 
-  read_html() %>% 
-  html_nodes(".chart-table-track span") %>% 
-  html_text()
-
+          read_html() %>% 
+          html_nodes(".chart-table-track span") %>% 
+          html_text()
+                            
 # Retrieving the 200 stream counts of each day.
 
 stream_count <- page %>% 
-  read_html() %>% 
-  html_nodes("td.chart-table-streams") %>% 
-  html_text()
+                read_html() %>% 
+                html_nodes("td.chart-table-streams") %>% 
+                html_text()
 
 # Retrieving the dates of for each day of the period. 
-
+            
 date <- page %>% 
-  read_html() %>% 
-  html_nodes(".responsive-select~ .responsive-select+ 
-             .responsive-select .responsive-select-value") %>%
-  html_text()
+        read_html() %>% 
+        html_nodes(".responsive-select~ .responsive-select+ 
+                    .responsive-select .responsive-select-value") %>%
+        html_text()
 
 # Putting these chunks together in a table of the class. 
 
@@ -103,23 +100,5 @@ end_time <- Sys.time()
 process_time <- end_time - init_time
 print(process_time)
 
-# Exporting the retrieved data table as .csv-file.
-
+# Exporting and saving the retrieved datatable as .csv-file.
 write_csv(spotifyR, "spotifyR_charts.csv")
-
-
-drt <- c(1:100)
-for (i in drt) {
-
-if (drt[i] %% 3 == 0 & drt[i] %% 5 == 0 )
-{print("drdikott")}
-  
-else if (drt[i] %% 3 == 0)
-  { print("drdik")}
-  
-else if (drt[i] %% 5 == 0)
-{print("ott")}
-
-else {print(i)}
-}
-
