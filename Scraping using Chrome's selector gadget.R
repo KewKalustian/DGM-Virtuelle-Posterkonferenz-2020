@@ -28,9 +28,8 @@ gathering_urls <- function(x){paste0(url, x)}
 
 all_urls  <- gathering_urls(streaming_period)
 
-# Everything looks fine thus far. Hence, we create now an empty dataframe-object 
-# with the desired column-names and the needed row-length so that we can fill 
-# the rows with the information we are going to retrieve from those 546 URLs 
+# Everything looks fine thus far. Hence, we create now a function that fills
+# the desired column-names with the information we are going to retrieve from those 546 URLs 
 # (i.e., chart position, song/track title, artist, stream counts, and dates).
 
 spotifyR_scrapeR <- function(x) {page <- x
@@ -85,7 +84,7 @@ return(tab)}
 init_time <- Sys.time()
 
 # The actual process of web scraping: Applying the spotifyR_scrapeR-function
-# to the object of that definitive URLs for each list element. That is, the just 
+# to the object of that all URLs. That is, the just 
 # created spotifyR_scrapeR-function retrieves from each URL the desired 
 # information.
 
