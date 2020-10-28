@@ -89,7 +89,7 @@ init_time <- Sys.time()
 # created spotifyR_scrapeR-function retrieves from each URL the desired 
 # information.
 
-spotifyR <- map_df(definitive_urls, spotifyR_scrapeR) 
+spotifyR <- map_df(all_urls, spotifyR_scrapeR) 
 
 # End time of the retrieving-process.
 
